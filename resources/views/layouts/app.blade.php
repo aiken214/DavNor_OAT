@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#4338ca">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+    <title>@yield('title', 'OAT - Online Attendance Tracker')</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' },
+                        accent: { 50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.3); }
+        .sidebar-link { transition: all 0.2s ease; }
+        .sidebar-link:hover, .sidebar-link.active { background: rgba(37,99,235,0.1); color: #2563eb; }
+        .btn-punch { transition: all 0.3s ease; }
+        .btn-punch:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); }
+        .btn-punch:active { transform: translateY(0); }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        @media (display-mode: standalone) {
+            .pwa-hide { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+    <div class="flex min-h-screen">
+        {{-- Sidebar --}}
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="flex flex-col h-full">
+                {{-- Logo --}}
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-200">
+                            <i class="fas fa-clock text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold text-slate-800 tracking-tight">OAT</h1>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-widest">Attendance Tracker</p>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Navigation --}}
+                <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                    <a href="{{ route('dashboard') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('dashboard') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-tachometer-alt w-5 text-center"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ route('dtr.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('dtr.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-calendar-alt w-5 text-center"></i>
+                        <span>My DTR</span>
+                    </a>
+                    <a href="{{ route('password.change') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('password.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-key w-5 text-center"></i>
+                        <span>Change Password</span>
+                    </a>
+
+                    @if(auth()->user()->is_admin)
+                    <div class="pt-4 pb-2 px-4">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Administration</p>
+                    </div>
+                    <a href="{{ route('admin.users.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('admin.users.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-users-cog w-5 text-center"></i>
+                        <span>Manage Employees</span>
+                    </a>
+                    @endif
+                </nav>
+
+                {{-- User Profile --}}
+                <div class="px-4 py-4 border-t border-slate-100">
+                    <div class="flex items-center gap-3 px-2">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-slate-700 truncate">{{ auth()->user()->name }}</p>
+                            <p class="text-xs text-slate-400 truncate">{{ auth()->user()->email }}</p>
+                        </div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Sign out">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        {{-- Mobile overlay --}}
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+        {{-- Main Content --}}
+        <main class="flex-1 lg:ml-64">
+            {{-- Top Bar --}}
+            <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-slate-100">
+                <div class="flex items-center justify-between px-4 sm:px-6 py-3">
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100">
+                            <i class="fas fa-bars text-lg"></i>
+                        </button>
+                        <h2 class="text-lg font-semibold text-slate-800">@yield('page-title', 'Dashboard')</h2>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-slate-500">
+                        <i class="fas fa-building"></i>
+                        <span class="hidden sm:inline">DepEd - Division of Davao del Norte</span>
+                        <span class="sm:hidden">SDO DavNor</span>
+                    </div>
+                </div>
+            </header>
+
+            {{-- Flash Messages --}}
+            @if(session('success'))
+            <div class="mx-4 sm:mx-6 mt-4 fade-in">
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-accent-50 border border-accent-200 text-accent-700">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="text-sm font-medium">{{ session('success') }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-accent-400 hover:text-accent-600"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            @endif
+            @if(session('error'))
+            <div class="mx-4 sm:mx-6 mt-4 fade-in">
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span class="text-sm font-medium">{{ session('error') }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-red-400 hover:text-red-600"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            @endif
+
+            {{-- Page Content --}}
+            <div class="p-4 sm:p-6">
+                @yield('content')
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('{{ asset("sw.js") }}');
+        }
+    </script>
+    @stack('scripts')
+</body>
+</html>
