@@ -149,10 +149,12 @@
 <script>
     function updateClock() {
         const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-        const h = String(now.getHours()).padStart(2, '0');
+        let h = now.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
         const m = String(now.getMinutes()).padStart(2, '0');
         const s = String(now.getSeconds()).padStart(2, '0');
-        document.getElementById('live-clock').textContent = `${h}:${m}:${s}`;
+        document.getElementById('live-clock').textContent = `${h}:${m}:${s} ${ampm}`;
 
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         document.getElementById('live-date').textContent = now.toLocaleDateString('en-US', options);
