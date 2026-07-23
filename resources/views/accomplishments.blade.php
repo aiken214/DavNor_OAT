@@ -360,82 +360,86 @@
 
     let isSyncing = false;
 
-    async function syncPending() {
+    function syncPending() {
         if (isSyncing) return;
 
-        var items = await getAllPending();
-        if (items.length === 0) return;
+        getAllPending().then(function(items) {
+            if (items.length === 0) return;
 
-        isSyncing = true;
-        var syncBtn = document.getElementById('sync-btn');
-        var syncIcon = document.getElementById('sync-icon');
-        if (syncBtn) syncBtn.disabled = true;
-        if (syncIcon) syncIcon.classList.add('fa-spin');
+            isSyncing = true;
+            var syncBtn = document.getElementById('sync-btn');
+            var syncIcon = document.getElementById('sync-icon');
+            if (syncBtn) syncBtn.disabled = true;
+            if (syncIcon) syncIcon.classList.add('fa-spin');
 
-        var synced = 0;
-        var failed = false;
-        var token = CSRF_TOKEN;
+            syncNextItem(items, 0, 0);
+        });
+    }
 
-        for (var i = 0; i < items.length; i++) {
-            var item = items[i];
-            try {
-                var body = new FormData();
-                body.append('_token', token);
-                body.append('date', item.data.date);
-                body.append('description', item.data.description);
-                body.append('photo', item.data.photo);
-                body.append('latitude', item.data.latitude || '');
-                body.append('longitude', item.data.longitude || '');
-                body.append('address', item.data.address || '');
-
-                console.log('Syncing item', item.id, 'photo length:', (item.data.photo || '').length);
-
-                var response = await fetch(STORE_URL, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: body
-                });
-
-                console.log('Sync response:', response.status, response.url, 'redirected:', response.redirected);
-
-                if (response.url && response.url.indexOf('/login') !== -1) {
-                    alert('Sync failed: Session expired. Please refresh and login.');
-                    failed = true;
-                    break;
-                }
-
-                if (response.status === 419) {
-                    alert('Sync failed: CSRF token expired (419). Please refresh the page.');
-                    failed = true;
-                    break;
-                }
-
-                if (response.ok || response.redirected) {
-                    await deletePending(item.id);
-                    synced++;
-                } else {
-                    var errText = '';
-                    try { errText = await response.text(); } catch(ignored) {}
-                    console.log('Sync error response body:', errText.substring(0, 500));
-                    alert('Sync failed with status ' + response.status + '. Check console for details.');
-                    failed = true;
-                    break;
-                }
-            } catch (e) {
-                console.error('Sync fetch error:', e);
-                alert('Sync network error: ' + e.message);
-                failed = true;
-                break;
-            }
+    function syncNextItem(items, index, synced) {
+        if (index >= items.length) {
+            finishSync(synced);
+            return;
         }
 
+        var item = items[index];
+
+        // Create a hidden iframe to submit the form into
+        var iframe = document.createElement('iframe');
+        iframe.name = 'sync-frame';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+
+        // Populate the hidden form
+        document.getElementById('acc-form-date').value = item.data.date;
+        document.getElementById('acc-form-description').value = item.data.description;
+        document.getElementById('acc-form-photo').value = item.data.photo;
+        document.getElementById('acc-form-lat').value = item.data.latitude || '';
+        document.getElementById('acc-form-lng').value = item.data.longitude || '';
+        document.getElementById('acc-form-address').value = item.data.address || '';
+
+        // Point form at the iframe
+        var form = document.getElementById('acc-form');
+        form.target = 'sync-frame';
+
+        var done = false;
+
+        iframe.addEventListener('load', function() {
+            if (done) return;
+            done = true;
+            form.target = '';
+            document.body.removeChild(iframe);
+
+            // The form POST completed (server responded) — item was saved
+            deletePending(item.id).then(function() {
+                syncNextItem(items, index + 1, synced + 1);
+            });
+        });
+
+        // Timeout in case we're actually offline
+        setTimeout(function() {
+            if (!done) {
+                done = true;
+                form.target = '';
+                try { document.body.removeChild(iframe); } catch(e) {}
+                showToast('No connection. Will retry later.', 'warning');
+                finishSync(synced);
+            }
+        }, 20000);
+
+        form.submit();
+    }
+
+    function finishSync(synced) {
         isSyncing = false;
+        var syncBtn = document.getElementById('sync-btn');
+        var syncIcon = document.getElementById('sync-icon');
         if (syncBtn) syncBtn.disabled = false;
         if (syncIcon) syncIcon.classList.remove('fa-spin');
 
         if (synced > 0) {
             showToast(synced + ' accomplishment' + (synced > 1 ? 's' : '') + ' synced!', 'success');
-            await updatePendingUI();
+            updatePendingUI();
             setTimeout(function() { location.reload(); }, 1200);
         }
     }
@@ -646,7 +650,7 @@
 
     // ==================== Submit ====================
 
-    async function submitAccomplishment() {
+    function submitAccomplishment() {
         var btn = document.getElementById('acc-btn-submit');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
@@ -655,52 +659,36 @@
         var formDesc = document.getElementById('acc-description').value.trim();
         var formPhoto = document.getElementById('acc-preview').src;
 
-        try {
-            var body = new FormData();
-            body.append('_token', CSRF_TOKEN);
-            body.append('date', formDate);
-            body.append('description', formDesc);
-            body.append('photo', formPhoto);
-            body.append('latitude', accLat || '');
-            body.append('longitude', accLng || '');
-            body.append('address', accAddress || '');
-
-            var response = await fetch(STORE_URL, {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: body
-            });
-
-            if (response.ok || response.redirected) {
+        if (!navigator.onLine) {
+            // Offline — save to IndexedDB
+            savePending({
+                date: formDate,
+                description: formDesc,
+                photo: formPhoto,
+                latitude: accLat || null,
+                longitude: accLng || null,
+                address: accAddress || ''
+            }).then(function() {
                 closeAccCamera();
+                showToast('Saved offline. Will sync when connected.', 'warning');
                 document.getElementById('acc-description').value = '';
-                location.reload();
-                return;
-            }
-
-            if (response.status === 419) {
-                alert('Session expired (419). Please refresh the page.');
-                closeAccCamera();
-                return;
-            }
-
-            alert('Server error (status ' + response.status + '). Saving offline instead.');
-        } catch (e) {
-            console.log('Submit fetch error:', e.message);
+                updatePendingUI();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check mr-1"></i> Confirm & Save';
+            });
+            return;
         }
 
-        await savePending({
-            date: formDate,
-            description: formDesc,
-            photo: formPhoto,
-            latitude: accLat || null,
-            longitude: accLng || null,
-            address: accAddress || ''
-        });
+        // Online — submit form directly (proven working method)
+        document.getElementById('acc-form-date').value = formDate;
+        document.getElementById('acc-form-description').value = formDesc;
+        document.getElementById('acc-form-photo').value = formPhoto;
+        document.getElementById('acc-form-lat').value = accLat || '';
+        document.getElementById('acc-form-lng').value = accLng || '';
+        document.getElementById('acc-form-address').value = accAddress || '';
         closeAccCamera();
-        showToast('Saved offline. Will sync when connected.', 'warning');
         document.getElementById('acc-description').value = '';
-        await updatePendingUI();
+        document.getElementById('acc-form').submit();
     }
 
     function closeAccCamera() {
@@ -724,6 +712,9 @@
 
     updateNetworkStatus();
     updatePendingUI();
-    syncPending();
+
+    if (navigator.onLine) {
+        syncPending();
+    }
 </script>
 @endpush
