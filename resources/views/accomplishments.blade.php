@@ -239,7 +239,7 @@
 @push('scripts')
 <script>
     const STORE_URL = '{{ route("accomplishments.store") }}';
-    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+    let CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const DB_NAME = 'oat-offline';
     const DB_VERSION = 1;
     const STORE_NAME = 'pending-accomplishments';
@@ -360,6 +360,20 @@
 
     let isSyncing = false;
 
+    async function refreshToken() {
+        try {
+            var resp = await fetch(window.location.href, { method: 'GET', credentials: 'same-origin' });
+            var html = await resp.text();
+            var match = html.match(/meta name="csrf-token" content="([^"]+)"/);
+            if (match) {
+                CSRF_TOKEN = match[1];
+                document.querySelector('meta[name="csrf-token"]').content = CSRF_TOKEN;
+                var hiddenToken = document.querySelector('#acc-form input[name="_token"]');
+                if (hiddenToken) hiddenToken.value = CSRF_TOKEN;
+            }
+        } catch (e) {}
+    }
+
     async function syncPending() {
         if (isSyncing) return;
 
@@ -372,15 +386,17 @@
         if (syncBtn) syncBtn.disabled = true;
         if (syncIcon) syncIcon.classList.add('fa-spin');
 
+        // Get a fresh CSRF token before syncing
+        await refreshToken();
+
         var synced = 0;
         var failed = false;
-        var token = CSRF_TOKEN;
 
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             try {
                 var body = new FormData();
-                body.append('_token', token);
+                body.append('_token', CSRF_TOKEN);
                 body.append('date', item.data.date);
                 body.append('description', item.data.description);
                 body.append('photo', item.data.photo);
@@ -388,24 +404,21 @@
                 body.append('longitude', item.data.longitude || '');
                 body.append('address', item.data.address || '');
 
-                console.log('Syncing item', item.id, 'photo length:', (item.data.photo || '').length);
-
                 var response = await fetch(STORE_URL, {
                     method: 'POST',
                     credentials: 'same-origin',
                     body: body
                 });
 
-                console.log('Sync response:', response.status, response.url, 'redirected:', response.redirected);
-
                 if (response.url && response.url.indexOf('/login') !== -1) {
-                    alert('Sync failed: Session expired. Please refresh and login.');
+                    alert('Sync: session expired. Please login again.');
                     failed = true;
                     break;
                 }
 
                 if (response.status === 419) {
-                    alert('Sync failed: CSRF token expired (419). Please refresh the page.');
+                    alert('Sync: token expired (419). Refreshing page...');
+                    setTimeout(function() { location.reload(); }, 500);
                     failed = true;
                     break;
                 }
@@ -414,16 +427,12 @@
                     await deletePending(item.id);
                     synced++;
                 } else {
-                    var errText = '';
-                    try { errText = await response.text(); } catch(ignored) {}
-                    console.log('Sync error response body:', errText.substring(0, 500));
-                    alert('Sync failed with status ' + response.status + '. Check console for details.');
+                    alert('Sync error: status ' + response.status);
                     failed = true;
                     break;
                 }
             } catch (e) {
-                console.error('Sync fetch error:', e);
-                alert('Sync network error: ' + e.message);
+                showToast('No connection. Will retry later.', 'warning');
                 failed = true;
                 break;
             }
@@ -655,40 +664,30 @@
         var formDesc = document.getElementById('acc-description').value.trim();
         var formPhoto = document.getElementById('acc-preview').src;
 
+        // Quick connectivity check
+        var online = false;
         try {
-            var body = new FormData();
-            body.append('_token', CSRF_TOKEN);
-            body.append('date', formDate);
-            body.append('description', formDesc);
-            body.append('photo', formPhoto);
-            body.append('latitude', accLat || '');
-            body.append('longitude', accLng || '');
-            body.append('address', accAddress || '');
-
-            var response = await fetch(STORE_URL, {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: body
-            });
-
-            if (response.ok || response.redirected) {
-                closeAccCamera();
-                document.getElementById('acc-description').value = '';
-                location.reload();
-                return;
-            }
-
-            if (response.status === 419) {
-                alert('Session expired (419). Please refresh the page.');
-                closeAccCamera();
-                return;
-            }
-
-            alert('Server error (status ' + response.status + '). Saving offline instead.');
+            var ping = await fetch(STORE_URL, { method: 'HEAD', credentials: 'same-origin' });
+            online = true;
         } catch (e) {
-            console.log('Submit fetch error:', e.message);
+            online = false;
         }
 
+        if (online) {
+            // Use hidden form — this is the most reliable method
+            document.getElementById('acc-form-date').value = formDate;
+            document.getElementById('acc-form-description').value = formDesc;
+            document.getElementById('acc-form-photo').value = formPhoto;
+            document.getElementById('acc-form-lat').value = accLat || '';
+            document.getElementById('acc-form-lng').value = accLng || '';
+            document.getElementById('acc-form-address').value = accAddress || '';
+            closeAccCamera();
+            document.getElementById('acc-description').value = '';
+            document.getElementById('acc-form').submit();
+            return;
+        }
+
+        // Offline — save to IndexedDB
         await savePending({
             date: formDate,
             description: formDesc,
