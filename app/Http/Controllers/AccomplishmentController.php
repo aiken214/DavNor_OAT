@@ -39,6 +39,20 @@ class AccomplishmentController extends Controller
         $user = Auth::user();
         $date = $request->input('date', Carbon::now('Asia/Manila')->toDateString());
         $now = Carbon::now('Asia/Manila');
+
+        $existing = Accomplishment::where('user_id', $user->id)
+            ->where('date', $date)
+            ->where('description', $request->description)
+            ->where('created_at', '>=', $now->copy()->subMinutes(2))
+            ->first();
+
+        if ($existing) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true, 'message' => 'Already saved.']);
+            }
+            return back()->with('success', 'Work accomplishment added with photo.');
+        }
+
         $photoPath = null;
 
         $photoData = $request->input('photo');

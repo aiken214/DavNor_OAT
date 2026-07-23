@@ -385,13 +385,11 @@
 
         var item = items[index];
 
-        // Create a hidden iframe to submit the form into
         var iframe = document.createElement('iframe');
-        iframe.name = 'sync-frame';
+        iframe.name = 'sync-frame-' + index;
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
 
-        // Populate the hidden form
         document.getElementById('acc-form-date').value = item.data.date;
         document.getElementById('acc-form-description').value = item.data.description;
         document.getElementById('acc-form-photo').value = item.data.photo;
@@ -399,25 +397,26 @@
         document.getElementById('acc-form-lng').value = item.data.longitude || '';
         document.getElementById('acc-form-address').value = item.data.address || '';
 
-        // Point form at the iframe
         var form = document.getElementById('acc-form');
-        form.target = 'sync-frame';
+        form.target = iframe.name;
 
         var done = false;
+        var loadCount = 0;
 
         iframe.addEventListener('load', function() {
+            loadCount++;
+            // Skip the first load (about:blank). The server response is the second load.
+            if (loadCount < 2) return;
             if (done) return;
             done = true;
             form.target = '';
-            document.body.removeChild(iframe);
+            try { document.body.removeChild(iframe); } catch(e) {}
 
-            // The form POST completed (server responded) — item was saved
             deletePending(item.id).then(function() {
                 syncNextItem(items, index + 1, synced + 1);
             });
         });
 
-        // Timeout in case we're actually offline
         setTimeout(function() {
             if (!done) {
                 done = true;
@@ -457,10 +456,12 @@
         }
     }
 
+    var syncTimer = null;
     window.addEventListener('online', function() {
         updateNetworkStatus();
         showToast('Back online! Syncing...', 'success');
-        setTimeout(syncPending, 500);
+        if (syncTimer) clearTimeout(syncTimer);
+        syncTimer = setTimeout(function() { syncTimer = null; syncPending(); }, 2000);
     });
 
     window.addEventListener('offline', function() {
