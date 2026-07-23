@@ -363,7 +363,7 @@
     async function syncPending() {
         if (isSyncing) return;
 
-        const items = await getAllPending();
+        var items = await getAllPending();
         if (items.length === 0) return;
 
         isSyncing = true;
@@ -374,12 +374,13 @@
 
         var synced = 0;
         var failed = false;
+        var token = CSRF_TOKEN;
 
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             try {
                 var body = new FormData();
-                body.append('_token', CSRF_TOKEN);
+                body.append('_token', token);
                 body.append('date', item.data.date);
                 body.append('description', item.data.description);
                 body.append('photo', item.data.photo);
@@ -387,34 +388,42 @@
                 body.append('longitude', item.data.longitude || '');
                 body.append('address', item.data.address || '');
 
+                console.log('Syncing item', item.id, 'photo length:', (item.data.photo || '').length);
+
                 var response = await fetch(STORE_URL, {
                     method: 'POST',
                     credentials: 'same-origin',
                     body: body
                 });
 
+                console.log('Sync response:', response.status, response.url, 'redirected:', response.redirected);
+
                 if (response.url && response.url.indexOf('/login') !== -1) {
-                    showToast('Session expired. Please refresh and login.', 'error');
+                    alert('Sync failed: Session expired. Please refresh and login.');
                     failed = true;
                     break;
                 }
 
                 if (response.status === 419) {
-                    showToast('Session expired. Please refresh the page.', 'error');
+                    alert('Sync failed: CSRF token expired (419). Please refresh the page.');
                     failed = true;
                     break;
                 }
 
-                if (response.ok || response.status === 302 || response.redirected) {
+                if (response.ok || response.redirected) {
                     await deletePending(item.id);
                     synced++;
                 } else {
-                    showToast('Sync error (status ' + response.status + '). Try again.', 'error');
+                    var errText = '';
+                    try { errText = await response.text(); } catch(ignored) {}
+                    console.log('Sync error response body:', errText.substring(0, 500));
+                    alert('Sync failed with status ' + response.status + '. Check console for details.');
                     failed = true;
                     break;
                 }
             } catch (e) {
-                showToast('No connection. Will retry later.', 'warning');
+                console.error('Sync fetch error:', e);
+                alert('Sync network error: ' + e.message);
                 failed = true;
                 break;
             }
@@ -638,7 +647,7 @@
     // ==================== Submit ====================
 
     async function submitAccomplishment() {
-        const btn = document.getElementById('acc-btn-submit');
+        var btn = document.getElementById('acc-btn-submit');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
@@ -670,15 +679,16 @@
             }
 
             if (response.status === 419) {
-                showToast('Session expired. Please refresh the page.', 'error');
+                alert('Session expired (419). Please refresh the page.');
                 closeAccCamera();
                 return;
             }
+
+            alert('Server error (status ' + response.status + '). Saving offline instead.');
         } catch (e) {
-            // Network error — device is offline
+            console.log('Submit fetch error:', e.message);
         }
 
-        // Could not reach server — save locally
         await savePending({
             date: formDate,
             description: formDesc,
