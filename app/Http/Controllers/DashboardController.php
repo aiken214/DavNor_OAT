@@ -20,8 +20,8 @@ class DashboardController extends Controller
 
         $photos = AttendancePhoto::where('user_id', Auth::id())
             ->where('date', $today)
-            ->pluck('type')
-            ->toArray();
+            ->get()
+            ->keyBy('type');
 
         return view('dashboard', compact('attendance', 'photos'));
     }

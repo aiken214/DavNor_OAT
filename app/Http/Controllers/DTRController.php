@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\AttendancePhoto;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +21,13 @@ class DTRController extends Controller
             ->orderBy('date')
             ->get();
 
-        return view('dtr', compact('attendances', 'month', 'year'));
+        $photosByDate = AttendancePhoto::where('user_id', Auth::id())
+            ->whereMonth('date', $month)
+            ->whereYear('date', $year)
+            ->get()
+            ->groupBy(fn($p) => $p->date->format('Y-m-d'));
+
+        return view('dtr', compact('attendances', 'month', 'year', 'photosByDate'));
     }
 
     public function download(Request $request)

@@ -66,6 +66,7 @@
                     @php
                         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
                         $attendanceByDate = $attendances->keyBy(fn($a) => $a->date->format('Y-m-d'));
+                        $pbd = $photosByDate ?? collect();
                     @endphp
                     @for($d = 1; $d <= $daysInMonth; $d++)
                         @php
@@ -81,42 +82,25 @@
                             <td class="px-4 py-2.5 text-sm {{ $isWeekend ? 'text-red-400 font-medium' : 'text-slate-500' }}">
                                 {{ $date->format('D') }}
                             </td>
+                            @php
+                                $dayPhotos = $pbd->get($key, collect())->keyBy('type');
+                            @endphp
+                            @foreach(['am_time_in' => 'amber', 'am_time_out' => 'orange', 'pm_time_in' => 'indigo', 'pm_time_out' => 'purple'] as $field => $color)
                             <td class="px-4 py-2.5 text-center text-sm">
-                                @if($att && $att->am_time_in)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 font-medium text-xs">
-                                        {{ \Carbon\Carbon::parse($att->am_time_in)->format('h:i A') }}
+                                @if($att && $att->$field)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-{{ $color }}-50 text-{{ $color }}-700 font-medium text-xs">
+                                        {{ \Carbon\Carbon::parse($att->$field)->format('h:i A') }}
                                     </span>
+                                    @if($dayPhotos->has($field))
+                                        <button onclick="viewPhoto('{{ route('photo.show', $dayPhotos[$field]->photo_path) }}')" class="ml-1 text-{{ $color }}-400 hover:text-{{ $color }}-600 transition-colors" title="View selfie">
+                                            <i class="fas fa-camera text-[10px]"></i>
+                                        </button>
+                                    @endif
                                 @else
                                     <span class="text-slate-300">&mdash;</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-2.5 text-center text-sm">
-                                @if($att && $att->am_time_out)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-orange-50 text-orange-700 font-medium text-xs">
-                                        {{ \Carbon\Carbon::parse($att->am_time_out)->format('h:i A') }}
-                                    </span>
-                                @else
-                                    <span class="text-slate-300">&mdash;</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-2.5 text-center text-sm">
-                                @if($att && $att->pm_time_in)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 font-medium text-xs">
-                                        {{ \Carbon\Carbon::parse($att->pm_time_in)->format('h:i A') }}
-                                    </span>
-                                @else
-                                    <span class="text-slate-300">&mdash;</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-2.5 text-center text-sm">
-                                @if($att && $att->pm_time_out)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-medium text-xs">
-                                        {{ \Carbon\Carbon::parse($att->pm_time_out)->format('h:i A') }}
-                                    </span>
-                                @else
-                                    <span class="text-slate-300">&mdash;</span>
-                                @endif
-                            </td>
+                            @endforeach
                         </tr>
                     @endfor
                 </tbody>
@@ -124,10 +108,20 @@
         </div>
     </div>
 </div>
+{{-- Photo Viewer Modal --}}
+<div id="photoViewer" class="fixed inset-0 z-[70] hidden bg-black/90 flex items-center justify-center p-4 cursor-pointer" onclick="this.classList.add('hidden')">
+    <img id="photoViewerImg" class="max-w-full max-h-full rounded-xl shadow-2xl">
+</div>
 @endsection
 
 @push('scripts')
 <script>
+    function viewPhoto(src) {
+        if (!src || src === '#') return;
+        document.getElementById('photoViewerImg').src = src;
+        document.getElementById('photoViewer').classList.remove('hidden');
+    }
+
     function printDTR() {
         const content = document.getElementById('dtr-table').innerHTML;
         const win = window.open('', '_blank');

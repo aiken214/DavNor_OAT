@@ -56,8 +56,13 @@
                     <p class="text-xs text-emerald-600 font-bold mt-1">
                         <i class="fas fa-check-circle mr-1"></i>{{ \Carbon\Carbon::parse($attendance->{$btn['type']})->format('h:i A') }}
                     </p>
-                    @if(in_array($btn['type'], $photos))
-                        <p class="text-[10px] text-emerald-500 mt-0.5"><i class="fas fa-camera mr-0.5"></i> Photo saved</p>
+                    @if($photos->has($btn['type']))
+                        <div class="mt-1.5 cursor-pointer" onclick="event.stopPropagation(); viewPhoto('{{ route('photo.show', $photos[$btn['type']]->photo_path) }}')">
+                            <img src="{{ route('photo.show', $photos[$btn['type']]->photo_path) }}"
+                                class="w-10 h-10 rounded-lg mx-auto object-cover border-2 border-emerald-200 hover:border-primary-400 transition-colors"
+                                onerror="this.outerHTML='<p class=\'text-[10px] text-emerald-500\'><i class=\'fas fa-camera mr-0.5\'></i> Photo saved</p>'"
+                                alt="Selfie">
+                        </div>
                     @endif
                 @else
                     <p class="text-xs text-slate-400 mt-1">Tap to record</p>
@@ -132,6 +137,11 @@
             </div>
         </div>
     </div>
+</div>
+
+{{-- Photo Viewer Modal --}}
+<div id="photoViewer" class="fixed inset-0 z-[70] hidden bg-black/90 flex items-center justify-center p-4 cursor-pointer" onclick="this.classList.add('hidden')">
+    <img id="photoViewerImg" class="max-w-full max-h-full rounded-xl shadow-2xl">
 </div>
 
 {{-- Hidden Form --}}
@@ -322,6 +332,12 @@
             currentStream.getTracks().forEach(t => t.stop());
             currentStream = null;
         }
+    }
+
+    function viewPhoto(src) {
+        if (!src || src === '#') return;
+        document.getElementById('photoViewerImg').src = src;
+        document.getElementById('photoViewer').classList.remove('hidden');
     }
 </script>
 @endpush
