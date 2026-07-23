@@ -44,6 +44,11 @@
             class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all">
             <i class="fas fa-calendar-alt text-amber-500"></i> View DTR
         </a>
+        @if(!$accomplishments->isEmpty())
+        <button onclick="printAccomplishments()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <i class="fas fa-print text-primary-500"></i> Print Report
+        </button>
+        @endif
     </div>
 
     {{-- Accomplishments --}}
@@ -140,5 +145,79 @@
             this.classList.add('hidden');
         }
     });
+
+    function printAccomplishments() {
+        var rows = '';
+        var num = 0;
+        @foreach($accomplishments as $date => $items)
+            @foreach($items as $acc)
+                num++;
+                rows += '<tr>' +
+                    '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' + num + '</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;">{{ \Carbon\Carbon::parse($date)->format("M d, Y") }}</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;">{{ addslashes($acc->description) }}</td>' +
+                    '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' +
+                        @if($acc->photo_path)
+                            '<img src="{{ route("photo.show", $acc->photo_path) }}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' +
+                        @else
+                            '' +
+                        @endif
+                    '</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;font-size:9px;">' +
+                        @if($acc->address)
+                            '{{ addslashes(Str::limit($acc->address, 50)) }}' +
+                        @elseif($acc->latitude && $acc->longitude)
+                            '{{ $acc->latitude }}, {{ $acc->longitude }}' +
+                        @else
+                            '' +
+                        @endif
+                    '</td>' +
+                    '</tr>';
+            @endforeach
+        @endforeach
+
+        var win = window.open('', '_blank');
+        win.document.write(
+            '<!DOCTYPE html><html><head>' +
+            '<title>Work Accomplishments - {{ $user->name }}</title>' +
+            '<style>' +
+                'body{font-family:Arial,sans-serif;margin:20px;color:#333}' +
+                '.header{text-align:center;margin-bottom:20px}' +
+                '.header h2{margin:0;font-size:16px}' +
+                '.header p{margin:2px 0;font-size:11px;color:#666}' +
+                'table{width:100%;border-collapse:collapse;font-size:11px}' +
+                'th,td{border:1px solid #ccc;padding:6px 8px}' +
+                'th{background:#f5f5f5;font-weight:bold;text-transform:uppercase;font-size:9px;text-align:left}' +
+                'img{display:block;margin:0 auto}' +
+                '.sig{margin-top:40px;display:flex;justify-content:space-between}' +
+                '.sig div{text-align:center;width:40%}' +
+                '.sig .line{border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px}' +
+            '</style>' +
+            '</head><body>' +
+            '<div class="header">' +
+                '<h2>WORK ACCOMPLISHMENT REPORT</h2>' +
+                '<p><strong>{{ $user->name }}</strong></p>' +
+                '<p>Bio ID: {{ $user->bio_id ?? "N/A" }} | Tag: {{ $user->tag }}</p>' +
+                '<p>Period: {{ date("F", mktime(0,0,0,$month,1)) }} {{ $year }}</p>' +
+            '</div>' +
+            '<table>' +
+                '<thead><tr>' +
+                    '<th style="width:5%;text-align:center">#</th>' +
+                    '<th style="width:15%">Date</th>' +
+                    '<th style="width:40%">Description</th>' +
+                    '<th style="width:15%;text-align:center">Photo</th>' +
+                    '<th style="width:25%">Location</th>' +
+                '</tr></thead>' +
+                '<tbody>' + rows + '</tbody>' +
+            '</table>' +
+            '<div class="sig">' +
+                '<div><div class="line">Prepared by</div></div>' +
+                '<div><div class="line">Noted by</div></div>' +
+            '</div>' +
+            '<script>window.onload=function(){setTimeout(function(){window.print();},500)}<\/script>' +
+            '</body></html>'
+        );
+        win.document.close();
+    }
 </script>
 @endpush
