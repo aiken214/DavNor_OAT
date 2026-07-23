@@ -125,7 +125,7 @@
                                     @if($item->photo_path)
                                         <div class="mt-2 flex items-center gap-3">
                                             <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer" onclick="viewPhoto(this.querySelector('img').src)">
-                                                <img src="{{ Storage::disk('public')->exists($item->photo_path) ? asset('storage/'.$item->photo_path) : '#' }}"
+                                                <img src="{{ route('photo.show', $item->photo_path) }}"
                                                     alt="Selfie" class="w-full h-full object-cover"
                                                     onerror="this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-slate-300\'><i class=\'fas fa-image\'></i></div>'">
                                             </div>
@@ -218,6 +218,17 @@
         <span id="toast-text"></span>
     </div>
 </div>
+
+{{-- Hidden Form (used for online submissions) --}}
+<form id="acc-form" method="POST" action="{{ route('accomplishments.store') }}" class="hidden">
+    @csrf
+    <input type="hidden" name="date" id="acc-form-date">
+    <input type="hidden" name="description" id="acc-form-description">
+    <input type="hidden" name="photo" id="acc-form-photo">
+    <input type="hidden" name="latitude" id="acc-form-lat">
+    <input type="hidden" name="longitude" id="acc-form-lng">
+    <input type="hidden" name="address" id="acc-form-address">
+</form>
 @endsection
 
 @push('scripts')
@@ -355,14 +366,20 @@
 
         for (const item of items) {
             try {
+                var body = new FormData();
+                body.append('_token', CSRF_TOKEN);
+                body.append('date', item.data.date);
+                body.append('description', item.data.description);
+                body.append('photo', item.data.photo);
+                body.append('latitude', item.data.latitude || '');
+                body.append('longitude', item.data.longitude || '');
+                body.append('address', item.data.address || '');
+
                 const response = await fetch(STORE_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': CSRF_TOKEN
-                    },
-                    body: JSON.stringify(item.data)
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    body: body
                 });
 
                 if (response.ok) {
@@ -601,54 +618,29 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-        const data = {
-            date: document.getElementById('acc-date').value,
-            description: document.getElementById('acc-description').value.trim(),
-            photo: document.getElementById('acc-preview').src,
-            latitude: accLat || '',
-            longitude: accLng || '',
-            address: accAddress || ''
-        };
+        const formDate = document.getElementById('acc-date').value;
+        const formDesc = document.getElementById('acc-description').value.trim();
+        const formPhoto = document.getElementById('acc-preview').src;
 
         if (navigator.onLine) {
-            try {
-                const response = await fetch(STORE_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': CSRF_TOKEN
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    closeAccCamera();
-                    showToast('Work accomplishment saved!', 'success');
-                    document.getElementById('acc-description').value = '';
-                    setTimeout(function() { location.reload(); }, 800);
-                    return;
-                }
-
-                if (response.status === 422) {
-                    const err = await response.json();
-                    const messages = Object.values(err.errors || {}).flat().join(' ');
-                    showToast(messages || 'Validation error.', 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check mr-1"></i> Confirm & Save';
-                    return;
-                }
-
-                throw new Error('Server error');
-            } catch (e) {
-                await savePending(data);
-                closeAccCamera();
-                showToast('Network issue. Saved offline — will sync later.', 'warning');
-                document.getElementById('acc-description').value = '';
-                await updatePendingUI();
-                return;
-            }
+            document.getElementById('acc-form-date').value = formDate;
+            document.getElementById('acc-form-description').value = formDesc;
+            document.getElementById('acc-form-photo').value = formPhoto;
+            document.getElementById('acc-form-lat').value = accLat || '';
+            document.getElementById('acc-form-lng').value = accLng || '';
+            document.getElementById('acc-form-address').value = accAddress || '';
+            document.getElementById('acc-form').submit();
+            return;
         }
+
+        var data = {
+            date: formDate,
+            description: formDesc,
+            photo: formPhoto,
+            latitude: accLat || null,
+            longitude: accLng || null,
+            address: accAddress || ''
+        };
 
         await savePending(data);
         closeAccCamera();

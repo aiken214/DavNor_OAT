@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DTRController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::get('/', fn () => redirect()->route('login'));
 
@@ -24,6 +25,19 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/my-dtr', [DTRController::class, 'index'])->name('dtr.index');
     Route::get('/my-dtr/download', [DTRController::class, 'download'])->name('dtr.download');
+
+    Route::get('/photo/{path}', function ($path) {
+        if (Storage::disk('synology')->exists($path)) {
+            return Storage::disk('synology')->response($path);
+        }
+        if (Storage::disk('public')->exists('photos/' . $path)) {
+            return Storage::disk('public')->response('photos/' . $path);
+        }
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->response($path);
+        }
+        abort(404);
+    })->where('path', '.*')->name('photo.show');
 
     Route::get('/accomplishments', [AccomplishmentController::class, 'index'])->name('accomplishments.index');
     Route::post('/accomplishments', [AccomplishmentController::class, 'store'])->name('accomplishments.store');
