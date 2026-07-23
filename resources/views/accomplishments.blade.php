@@ -753,7 +753,7 @@
                 num++;
                 rows += '<tr>' +
                     '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' + num + '</td>' +
-                    '<td style="vertical-align:top;padding:6px 8px;">{{ \Carbon\Carbon::parse($date)->format("M d, Y") }}</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;">{{ \Carbon\Carbon::parse($date)->format("M d, Y") }}<br><span style="font-size:9px;color:#888">{{ $item->created_at->timezone("Asia/Manila")->format("h:i A") }}</span></td>' +
                     '<td style="vertical-align:top;padding:6px 8px;">{{ addslashes($item->description) }}</td>' +
                     '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' +
                         @if($item->photo_path)
@@ -802,7 +802,7 @@
             '<table>' +
                 '<thead><tr>' +
                     '<th style="width:5%;text-align:center">#</th>' +
-                    '<th style="width:15%">Date</th>' +
+                    '<th style="width:15%">Date / Time</th>' +
                     '<th style="width:40%">Description</th>' +
                     '<th style="width:15%;text-align:center">Photo</th>' +
                     '<th style="width:25%">Location</th>' +
