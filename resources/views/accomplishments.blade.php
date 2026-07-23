@@ -65,9 +65,14 @@
                     <h3 class="text-sm font-semibold text-amber-800">Pending Uploads</h3>
                     <span id="pending-count" class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-xs font-bold">0</span>
                 </div>
-                <button onclick="syncPending()" id="sync-btn" class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors disabled:opacity-50">
-                    <i class="fas fa-sync mr-1" id="sync-icon"></i> Sync Now
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="syncPending()" id="sync-btn" class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors disabled:opacity-50">
+                        <i class="fas fa-sync mr-1" id="sync-icon"></i> Sync Now
+                    </button>
+                    <button onclick="clearAllPending()" class="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 transition-colors">
+                        <i class="fas fa-trash mr-1"></i> Clear All
+                    </button>
+                </div>
             </div>
             <div id="pending-list" class="divide-y divide-amber-100 max-h-96 overflow-y-auto"></div>
         </div>
@@ -333,6 +338,16 @@
         await deletePending(id);
         await updatePendingUI();
         showToast('Pending item removed.', 'info');
+    }
+
+    async function clearAllPending() {
+        if (!confirm('Remove all pending items? They have not been uploaded yet.')) return;
+        var items = await getAllPending();
+        for (var i = 0; i < items.length; i++) {
+            await deletePending(items[i].id);
+        }
+        await updatePendingUI();
+        showToast('All pending items cleared.', 'info');
     }
 
     function escapeHtml(text) {
@@ -611,42 +626,20 @@
         document.getElementById('acc-confirm').classList.remove('flex');
     }
 
-    // ==================== Submit (offline-aware) ====================
+    // ==================== Submit ====================
 
-    async function submitAccomplishment() {
+    function submitAccomplishment() {
         const btn = document.getElementById('acc-btn-submit');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-        const formDate = document.getElementById('acc-date').value;
-        const formDesc = document.getElementById('acc-description').value.trim();
-        const formPhoto = document.getElementById('acc-preview').src;
-
-        if (navigator.onLine) {
-            document.getElementById('acc-form-date').value = formDate;
-            document.getElementById('acc-form-description').value = formDesc;
-            document.getElementById('acc-form-photo').value = formPhoto;
-            document.getElementById('acc-form-lat').value = accLat || '';
-            document.getElementById('acc-form-lng').value = accLng || '';
-            document.getElementById('acc-form-address').value = accAddress || '';
-            document.getElementById('acc-form').submit();
-            return;
-        }
-
-        var data = {
-            date: formDate,
-            description: formDesc,
-            photo: formPhoto,
-            latitude: accLat || null,
-            longitude: accLng || null,
-            address: accAddress || ''
-        };
-
-        await savePending(data);
-        closeAccCamera();
-        showToast("Saved offline. Will sync when you're back online.", 'warning');
-        document.getElementById('acc-description').value = '';
-        await updatePendingUI();
+        document.getElementById('acc-form-date').value = document.getElementById('acc-date').value;
+        document.getElementById('acc-form-description').value = document.getElementById('acc-description').value.trim();
+        document.getElementById('acc-form-photo').value = document.getElementById('acc-preview').src;
+        document.getElementById('acc-form-lat').value = accLat || '';
+        document.getElementById('acc-form-lng').value = accLng || '';
+        document.getElementById('acc-form-address').value = accAddress || '';
+        document.getElementById('acc-form').submit();
     }
 
     function closeAccCamera() {
