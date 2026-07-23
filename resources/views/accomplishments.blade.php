@@ -362,10 +362,6 @@
 
     async function syncPending() {
         if (isSyncing) return;
-        if (!navigator.onLine) {
-            showToast('Still offline. Will sync when connected.', 'warning');
-            return;
-        }
 
         const items = await getAllPending();
         if (items.length === 0) return;
@@ -628,18 +624,54 @@
 
     // ==================== Submit ====================
 
-    function submitAccomplishment() {
+    async function submitAccomplishment() {
         const btn = document.getElementById('acc-btn-submit');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
 
-        document.getElementById('acc-form-date').value = document.getElementById('acc-date').value;
-        document.getElementById('acc-form-description').value = document.getElementById('acc-description').value.trim();
-        document.getElementById('acc-form-photo').value = document.getElementById('acc-preview').src;
-        document.getElementById('acc-form-lat').value = accLat || '';
-        document.getElementById('acc-form-lng').value = accLng || '';
-        document.getElementById('acc-form-address').value = accAddress || '';
-        document.getElementById('acc-form').submit();
+        var formDate = document.getElementById('acc-date').value;
+        var formDesc = document.getElementById('acc-description').value.trim();
+        var formPhoto = document.getElementById('acc-preview').src;
+
+        try {
+            var body = new FormData();
+            body.append('_token', CSRF_TOKEN);
+            body.append('date', formDate);
+            body.append('description', formDesc);
+            body.append('photo', formPhoto);
+            body.append('latitude', accLat || '');
+            body.append('longitude', accLng || '');
+            body.append('address', accAddress || '');
+
+            var response = await fetch(STORE_URL, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: body
+            });
+
+            if (response.ok) {
+                closeAccCamera();
+                document.getElementById('acc-description').value = '';
+                location.reload();
+                return;
+            }
+        } catch (e) {
+            // Network error — device is offline
+        }
+
+        // Could not reach server — save locally
+        await savePending({
+            date: formDate,
+            description: formDesc,
+            photo: formPhoto,
+            latitude: accLat || null,
+            longitude: accLng || null,
+            address: accAddress || ''
+        });
+        closeAccCamera();
+        showToast('Saved offline. Will sync when connected.', 'warning');
+        document.getElementById('acc-description').value = '';
+        await updatePendingUI();
     }
 
     function closeAccCamera() {
@@ -663,9 +695,6 @@
 
     updateNetworkStatus();
     updatePendingUI();
-
-    if (navigator.onLine) {
-        syncPending();
-    }
+    syncPending();
 </script>
 @endpush
