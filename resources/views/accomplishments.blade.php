@@ -601,7 +601,7 @@
             function() {
                 icon.className = 'fas fa-exclamation-triangle';
                 text.textContent = 'Location unavailable — please enable location access';
-                document.getElementById('acc-capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i> Please turn on Location. <button onclick="enableAccCaptureButton()" class="underline text-primary-500">Continue without GPS</button>';
+                document.getElementById('acc-capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i> Please turn on Location and try again';
             },
             { enableHighAccuracy: true, timeout: 15000 }
         );
