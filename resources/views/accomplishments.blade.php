@@ -389,6 +389,7 @@
 
                 var response = await fetch(STORE_URL, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: body
                 });
 
@@ -404,7 +405,7 @@
                     break;
                 }
 
-                if (response.ok) {
+                if (response.ok || response.status === 302 || response.redirected) {
                     await deletePending(item.id);
                     synced++;
                 } else {
@@ -661,10 +662,16 @@
                 body: body
             });
 
-            if (response.ok) {
+            if (response.ok || response.redirected) {
                 closeAccCamera();
                 document.getElementById('acc-description').value = '';
                 location.reload();
+                return;
+            }
+
+            if (response.status === 419) {
+                showToast('Session expired. Please refresh the page.', 'error');
+                closeAccCamera();
                 return;
             }
         } catch (e) {
