@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccomplishmentController;
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -49,5 +50,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+
+        Route::get('/employees', [AdminController::class, 'employees'])->name('employees.index');
+        Route::get('/employees/{user}/dtr', [AdminController::class, 'employeeDTR'])->name('employees.dtr');
+        Route::get('/employees/{user}/accomplishments', [AdminController::class, 'employeeAccomplishments'])->name('employees.accomplishments');
     });
 });

@@ -87,6 +87,10 @@
                         <i class="fas fa-users-cog w-5 text-center"></i>
                         <span>Manage Employees</span>
                     </a>
+                    <a href="{{ route('admin.employees.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('admin.employees.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-clipboard-list w-5 text-center"></i>
+                        <span>View Records</span>
+                    </a>
                     @endif
                 </nav>
 
