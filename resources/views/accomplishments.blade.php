@@ -80,21 +80,28 @@
 
     {{-- Filter --}}
     <div class="bg-white rounded-2xl border border-slate-100 p-4">
-        <form method="GET" action="{{ route('accomplishments.index') }}" class="flex items-center gap-2 flex-wrap">
-            <select name="month" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white">
-                @for($m = 1; $m <= 12; $m++)
-                    <option value="{{ $m }}" {{ $month == $m ? 'selected' : '' }}>{{ date('F', mktime(0,0,0,$m,1)) }}</option>
-                @endfor
-            </select>
-            <select name="year" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white">
-                @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
-                    <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
-                @endfor
-            </select>
-            <button type="submit" class="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors">
-                <i class="fas fa-filter mr-1"></i> Filter
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <form method="GET" action="{{ route('accomplishments.index') }}" class="flex items-center gap-2 flex-wrap">
+                <select name="month" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white">
+                    @for($m = 1; $m <= 12; $m++)
+                        <option value="{{ $m }}" {{ $month == $m ? 'selected' : '' }}>{{ date('F', mktime(0,0,0,$m,1)) }}</option>
+                    @endfor
+                </select>
+                <select name="year" class="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white">
+                    @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
+                        <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
+                    @endfor
+                </select>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors">
+                    <i class="fas fa-filter mr-1"></i> Filter
+                </button>
+            </form>
+            @if(!$accomplishments->isEmpty())
+            <button onclick="printAccomplishments()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <i class="fas fa-print text-primary-500"></i> Print
             </button>
-        </form>
+            @endif
+        </div>
     </div>
 
     {{-- Accomplishments List --}}
@@ -734,6 +741,82 @@
         if (!src || src === '#') return;
         document.getElementById('photoViewerImg').src = src;
         document.getElementById('photoViewer').classList.remove('hidden');
+    }
+
+    // ==================== Print ====================
+
+    function printAccomplishments() {
+        var rows = '';
+        var num = 0;
+        @foreach($accomplishments as $date => $items)
+            @foreach($items as $item)
+                num++;
+                rows += '<tr>' +
+                    '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' + num + '</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;">{{ \Carbon\Carbon::parse($date)->format("M d, Y") }}</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;">{{ addslashes($item->description) }}</td>' +
+                    '<td style="text-align:center;vertical-align:top;padding:6px 8px;">' +
+                        @if($item->photo_path)
+                            '<img src="{{ route("photo.show", $item->photo_path) }}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' +
+                        @else
+                            '' +
+                        @endif
+                    '</td>' +
+                    '<td style="vertical-align:top;padding:6px 8px;font-size:9px;">' +
+                        @if($item->address)
+                            '{{ addslashes(Str::limit($item->address, 50)) }}' +
+                        @elseif($item->latitude && $item->longitude)
+                            '{{ $item->latitude }}, {{ $item->longitude }}' +
+                        @else
+                            '' +
+                        @endif
+                    '</td>' +
+                    '</tr>';
+            @endforeach
+        @endforeach
+
+        var win = window.open('', '_blank');
+        win.document.write(
+            '<!DOCTYPE html><html><head>' +
+            '<title>Work Accomplishments - {{ auth()->user()->name }}</title>' +
+            '<style>' +
+                'body{font-family:Arial,sans-serif;margin:20px;color:#333}' +
+                '.header{text-align:center;margin-bottom:20px}' +
+                '.header h2{margin:0;font-size:16px}' +
+                '.header p{margin:2px 0;font-size:11px;color:#666}' +
+                'table{width:100%;border-collapse:collapse;font-size:11px}' +
+                'th,td{border:1px solid #ccc;padding:6px 8px}' +
+                'th{background:#f5f5f5;font-weight:bold;text-transform:uppercase;font-size:9px;text-align:left}' +
+                'img{display:block;margin:0 auto}' +
+                '.sig{margin-top:40px;display:flex;justify-content:space-between}' +
+                '.sig div{text-align:center;width:40%}' +
+                '.sig .line{border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px}' +
+            '</style>' +
+            '</head><body>' +
+            '<div class="header">' +
+                '<h2>WORK ACCOMPLISHMENT REPORT</h2>' +
+                '<p><strong>{{ auth()->user()->name }}</strong></p>' +
+                '<p>Bio ID: {{ auth()->user()->bio_id ?? "N/A" }} | Tag: {{ auth()->user()->tag }}</p>' +
+                '<p>Period: {{ date("F", mktime(0,0,0,$month,1)) }} {{ $year }}</p>' +
+            '</div>' +
+            '<table>' +
+                '<thead><tr>' +
+                    '<th style="width:5%;text-align:center">#</th>' +
+                    '<th style="width:15%">Date</th>' +
+                    '<th style="width:40%">Description</th>' +
+                    '<th style="width:15%;text-align:center">Photo</th>' +
+                    '<th style="width:25%">Location</th>' +
+                '</tr></thead>' +
+                '<tbody>' + rows + '</tbody>' +
+            '</table>' +
+            '<div class="sig">' +
+                '<div><div class="line">Prepared by</div></div>' +
+                '<div><div class="line">Noted by</div></div>' +
+            '</div>' +
+            '<script>window.onload=function(){setTimeout(function(){window.print();},500)}<\/script>' +
+            '</body></html>'
+        );
+        win.document.close();
     }
 
     // ==================== Init ====================
