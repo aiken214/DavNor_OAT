@@ -70,6 +70,10 @@
                         <i class="fas fa-calendar-alt w-5 text-center"></i>
                         <span>My DTR</span>
                     </a>
+                    <a href="{{ route('accomplishments.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('accomplishments.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-tasks w-5 text-center"></i>
+                        <span>Work Accomplishments</span>
+                    </a>
                     <a href="{{ route('password.change') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('password.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
                         <i class="fas fa-key w-5 text-center"></i>
                         <span>Change Password</span>

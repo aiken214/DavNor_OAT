@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccomplishmentController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -20,8 +21,13 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/attendance/record', [DashboardController::class, 'recordAttendance'])->name('attendance.record');
+
     Route::get('/my-dtr', [DTRController::class, 'index'])->name('dtr.index');
     Route::get('/my-dtr/download', [DTRController::class, 'download'])->name('dtr.download');
+
+    Route::get('/accomplishments', [AccomplishmentController::class, 'index'])->name('accomplishments.index');
+    Route::post('/accomplishments', [AccomplishmentController::class, 'store'])->name('accomplishments.store');
+    Route::delete('/accomplishments/{accomplishment}', [AccomplishmentController::class, 'destroy'])->name('accomplishments.destroy');
 
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
