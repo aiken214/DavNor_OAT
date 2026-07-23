@@ -194,10 +194,11 @@
                 </div>
             </div>
 
-            <div class="px-5 py-4 flex items-center justify-center gap-3" id="acc-actions">
-                <button onclick="captureAccPhoto()" class="w-16 h-16 rounded-full bg-white border-4 border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors">
-                    <div class="w-12 h-12 rounded-full bg-primary-500"></div>
+            <div class="px-5 py-4 flex flex-col items-center gap-2" id="acc-actions">
+                <button onclick="captureAccPhoto()" id="acc-btn-capture" disabled class="w-16 h-16 rounded-full bg-white border-4 border-slate-300 flex items-center justify-center transition-colors opacity-50 cursor-not-allowed">
+                    <div class="w-12 h-12 rounded-full bg-slate-300" id="acc-btn-capture-inner"></div>
                 </button>
+                <p class="text-xs text-slate-400" id="acc-capture-hint"><i class="fas fa-map-marker-alt mr-1"></i> Waiting for GPS location...</p>
             </div>
             <div class="px-5 py-4 items-center justify-center gap-3 hidden" id="acc-confirm">
                 <button onclick="retakeAccPhoto()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">
@@ -516,6 +517,10 @@
             return;
         }
 
+        accLat = null;
+        accLng = null;
+        accAddress = '';
+
         document.getElementById('accCameraModal').classList.remove('hidden');
         document.getElementById('acc-actions').classList.remove('hidden');
         document.getElementById('acc-actions').classList.add('flex');
@@ -523,6 +528,14 @@
         document.getElementById('acc-confirm').classList.remove('flex');
         document.getElementById('acc-video').classList.remove('hidden');
         document.getElementById('acc-preview').classList.add('hidden');
+
+        // Reset capture button to disabled
+        var btn = document.getElementById('acc-btn-capture');
+        var inner = document.getElementById('acc-btn-capture-inner');
+        btn.disabled = true;
+        btn.className = 'w-16 h-16 rounded-full bg-white border-4 border-slate-300 flex items-center justify-center transition-colors opacity-50 cursor-not-allowed';
+        inner.className = 'w-12 h-12 rounded-full bg-slate-300';
+        document.getElementById('acc-capture-hint').innerHTML = '<i class="fas fa-map-marker-alt mr-1"></i> Waiting for GPS location...';
 
         getAccLocation();
         startAccCamera();
@@ -542,6 +555,16 @@
         });
     }
 
+    function enableAccCaptureButton() {
+        var btn = document.getElementById('acc-btn-capture');
+        var inner = document.getElementById('acc-btn-capture-inner');
+        var hint = document.getElementById('acc-capture-hint');
+        btn.disabled = false;
+        btn.className = 'w-16 h-16 rounded-full bg-white border-4 border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors cursor-pointer opacity-100';
+        inner.className = 'w-12 h-12 rounded-full bg-primary-500';
+        hint.innerHTML = '<i class="fas fa-check-circle text-emerald-500 mr-1"></i> Location ready. Tap to capture.';
+    }
+
     function getAccLocation() {
         const icon = document.getElementById('acc-geo-icon');
         const text = document.getElementById('acc-geo-text');
@@ -551,6 +574,7 @@
         if (!navigator.geolocation) {
             icon.className = 'fas fa-exclamation-triangle';
             text.textContent = 'Geolocation not supported';
+            document.getElementById('acc-capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-red-400 mr-1"></i> Enable location to take photo';
             return;
         }
 
@@ -560,6 +584,8 @@
                 accLng = pos.coords.longitude;
                 icon.className = 'fas fa-map-marker-alt';
                 text.textContent = accLat.toFixed(5) + ', ' + accLng.toFixed(5);
+
+                enableAccCaptureButton();
 
                 fetch('https://nominatim.openstreetmap.org/reverse?lat=' + accLat + '&lon=' + accLng + '&format=json')
                     .then(function(r) { return r.json(); })
@@ -574,9 +600,10 @@
             },
             function() {
                 icon.className = 'fas fa-exclamation-triangle';
-                text.textContent = 'Location unavailable';
+                text.textContent = 'Location unavailable — please enable location access';
+                document.getElementById('acc-capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i> Please turn on Location. <button onclick="enableAccCaptureButton()" class="underline text-primary-500">Continue without GPS</button>';
             },
-            { enableHighAccuracy: true, timeout: 10000 }
+            { enableHighAccuracy: true, timeout: 15000 }
         );
     }
 

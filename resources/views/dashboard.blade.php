@@ -128,10 +128,11 @@
             </div>
 
             {{-- Actions --}}
-            <div class="px-5 py-4 flex items-center justify-center gap-3" id="camera-actions">
-                <button onclick="capturePhoto()" id="btn-capture" class="w-16 h-16 rounded-full bg-white border-4 border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors">
-                    <div class="w-12 h-12 rounded-full bg-primary-500"></div>
+            <div class="px-5 py-4 flex flex-col items-center gap-2" id="camera-actions">
+                <button onclick="capturePhoto()" id="btn-capture" disabled class="w-16 h-16 rounded-full bg-white border-4 border-slate-300 flex items-center justify-center transition-colors opacity-50 cursor-not-allowed">
+                    <div class="w-12 h-12 rounded-full bg-slate-300" id="btn-capture-inner"></div>
                 </button>
+                <p class="text-xs text-slate-400" id="capture-hint"><i class="fas fa-map-marker-alt mr-1"></i> Waiting for GPS location...</p>
             </div>
             <div class="px-5 py-4 items-center justify-center gap-3 hidden" id="camera-confirm">
                 <button onclick="retakePhoto()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">
@@ -191,6 +192,9 @@
 
     function openCamera(type, label) {
         currentType = type;
+        geoLat = null;
+        geoLng = null;
+        geoAddress = '';
         document.getElementById('camera-title').textContent = label;
         document.getElementById('camera-subtitle').textContent = 'Take a selfie to record your attendance';
         document.getElementById('cameraModal').classList.remove('hidden');
@@ -200,6 +204,14 @@
         document.getElementById('camera-confirm').classList.remove('flex');
         document.getElementById('camera-video').classList.remove('hidden');
         document.getElementById('camera-preview').classList.add('hidden');
+
+        // Reset capture button to disabled state
+        var btn = document.getElementById('btn-capture');
+        var inner = document.getElementById('btn-capture-inner');
+        btn.disabled = true;
+        btn.className = 'w-16 h-16 rounded-full bg-white border-4 border-slate-300 flex items-center justify-center transition-colors opacity-50 cursor-not-allowed';
+        inner.className = 'w-12 h-12 rounded-full bg-slate-300';
+        document.getElementById('capture-hint').innerHTML = '<i class="fas fa-map-marker-alt mr-1"></i> Waiting for GPS location...';
 
         getLocation();
         startCamera();
@@ -219,6 +231,16 @@
         });
     }
 
+    function enableCaptureButton() {
+        var btn = document.getElementById('btn-capture');
+        var inner = document.getElementById('btn-capture-inner');
+        var hint = document.getElementById('capture-hint');
+        btn.disabled = false;
+        btn.className = 'w-16 h-16 rounded-full bg-white border-4 border-primary-500 flex items-center justify-center hover:bg-primary-50 transition-colors cursor-pointer opacity-100';
+        inner.className = 'w-12 h-12 rounded-full bg-primary-500';
+        hint.innerHTML = '<i class="fas fa-check-circle text-emerald-500 mr-1"></i> Location ready. Tap to capture.';
+    }
+
     function getLocation() {
         const icon = document.getElementById('geo-icon');
         const text = document.getElementById('geo-text');
@@ -228,6 +250,7 @@
         if (!navigator.geolocation) {
             icon.className = 'fas fa-exclamation-triangle';
             text.textContent = 'Geolocation not supported';
+            document.getElementById('capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-red-400 mr-1"></i> Enable location to take photo';
             return;
         }
 
@@ -237,6 +260,8 @@
                 geoLng = pos.coords.longitude;
                 icon.className = 'fas fa-map-marker-alt';
                 text.textContent = `${geoLat.toFixed(5)}, ${geoLng.toFixed(5)}`;
+
+                enableCaptureButton();
 
                 fetch(`https://nominatim.openstreetmap.org/reverse?lat=${geoLat}&lon=${geoLng}&format=json`)
                     .then(r => r.json())
@@ -251,9 +276,10 @@
             },
             (err) => {
                 icon.className = 'fas fa-exclamation-triangle';
-                text.textContent = 'Location unavailable';
+                text.textContent = 'Location unavailable — please enable location access';
+                document.getElementById('capture-hint').innerHTML = '<i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i> Please turn on Location. <button onclick="enableCaptureButton()" class="underline text-primary-500">Continue without GPS</button>';
             },
-            { enableHighAccuracy: true, timeout: 10000 }
+            { enableHighAccuracy: true, timeout: 15000 }
         );
     }
 
