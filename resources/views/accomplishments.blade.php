@@ -367,15 +367,16 @@
         if (items.length === 0) return;
 
         isSyncing = true;
-        const syncBtn = document.getElementById('sync-btn');
-        const syncIcon = document.getElementById('sync-icon');
+        var syncBtn = document.getElementById('sync-btn');
+        var syncIcon = document.getElementById('sync-icon');
         if (syncBtn) syncBtn.disabled = true;
         if (syncIcon) syncIcon.classList.add('fa-spin');
 
-        let synced = 0;
-        let sessionExpired = false;
+        var synced = 0;
+        var failed = false;
 
-        for (const item of items) {
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
             try {
                 var body = new FormData();
                 body.append('_token', CSRF_TOKEN);
@@ -386,21 +387,34 @@
                 body.append('longitude', item.data.longitude || '');
                 body.append('address', item.data.address || '');
 
-                const response = await fetch(STORE_URL, {
+                var response = await fetch(STORE_URL, {
                     method: 'POST',
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'same-origin',
                     body: body
                 });
+
+                if (response.url && response.url.indexOf('/login') !== -1) {
+                    showToast('Session expired. Please refresh and login.', 'error');
+                    failed = true;
+                    break;
+                }
+
+                if (response.status === 419) {
+                    showToast('Session expired. Please refresh the page.', 'error');
+                    failed = true;
+                    break;
+                }
 
                 if (response.ok) {
                     await deletePending(item.id);
                     synced++;
-                } else if (response.status === 401 || response.status === 419) {
-                    sessionExpired = true;
+                } else {
+                    showToast('Sync error (status ' + response.status + '). Try again.', 'error');
+                    failed = true;
                     break;
                 }
             } catch (e) {
+                showToast('No connection. Will retry later.', 'warning');
+                failed = true;
                 break;
             }
         }
@@ -409,9 +423,7 @@
         if (syncBtn) syncBtn.disabled = false;
         if (syncIcon) syncIcon.classList.remove('fa-spin');
 
-        if (sessionExpired) {
-            showToast('Session expired. Please refresh the page and login.', 'error');
-        } else if (synced > 0) {
+        if (synced > 0) {
             showToast(synced + ' accomplishment' + (synced > 1 ? 's' : '') + ' synced!', 'success');
             await updatePendingUI();
             setTimeout(function() { location.reload(); }, 1200);
