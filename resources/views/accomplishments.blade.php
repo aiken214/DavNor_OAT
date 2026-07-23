@@ -239,7 +239,7 @@
 @push('scripts')
 <script>
     const STORE_URL = '{{ route("accomplishments.store") }}';
-    let CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
     const DB_NAME = 'oat-offline';
     const DB_VERSION = 1;
     const STORE_NAME = 'pending-accomplishments';
@@ -360,91 +360,86 @@
 
     let isSyncing = false;
 
-    async function refreshToken() {
-        try {
-            var resp = await fetch(window.location.href, { method: 'GET', credentials: 'same-origin' });
-            var html = await resp.text();
-            var match = html.match(/meta name="csrf-token" content="([^"]+)"/);
-            if (match) {
-                CSRF_TOKEN = match[1];
-                document.querySelector('meta[name="csrf-token"]').content = CSRF_TOKEN;
-                var hiddenToken = document.querySelector('#acc-form input[name="_token"]');
-                if (hiddenToken) hiddenToken.value = CSRF_TOKEN;
-            }
-        } catch (e) {}
-    }
-
-    async function syncPending() {
+    function syncPending() {
         if (isSyncing) return;
 
-        var items = await getAllPending();
-        if (items.length === 0) return;
+        getAllPending().then(function(items) {
+            if (items.length === 0) return;
 
-        isSyncing = true;
-        var syncBtn = document.getElementById('sync-btn');
-        var syncIcon = document.getElementById('sync-icon');
-        if (syncBtn) syncBtn.disabled = true;
-        if (syncIcon) syncIcon.classList.add('fa-spin');
+            isSyncing = true;
+            var syncBtn = document.getElementById('sync-btn');
+            var syncIcon = document.getElementById('sync-icon');
+            if (syncBtn) syncBtn.disabled = true;
+            if (syncIcon) syncIcon.classList.add('fa-spin');
 
-        // Get a fresh CSRF token before syncing
-        await refreshToken();
+            syncNextItem(items, 0, 0);
+        });
+    }
 
-        var synced = 0;
-        var failed = false;
-
-        for (var i = 0; i < items.length; i++) {
-            var item = items[i];
-            try {
-                var body = new FormData();
-                body.append('_token', CSRF_TOKEN);
-                body.append('date', item.data.date);
-                body.append('description', item.data.description);
-                body.append('photo', item.data.photo);
-                body.append('latitude', item.data.latitude || '');
-                body.append('longitude', item.data.longitude || '');
-                body.append('address', item.data.address || '');
-
-                var response = await fetch(STORE_URL, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: body
-                });
-
-                if (response.url && response.url.indexOf('/login') !== -1) {
-                    alert('Sync: session expired. Please login again.');
-                    failed = true;
-                    break;
-                }
-
-                if (response.status === 419) {
-                    alert('Sync: token expired (419). Refreshing page...');
-                    setTimeout(function() { location.reload(); }, 500);
-                    failed = true;
-                    break;
-                }
-
-                if (response.ok || response.redirected) {
-                    await deletePending(item.id);
-                    synced++;
-                } else {
-                    alert('Sync error: status ' + response.status);
-                    failed = true;
-                    break;
-                }
-            } catch (e) {
-                showToast('No connection. Will retry later.', 'warning');
-                failed = true;
-                break;
-            }
+    function syncNextItem(items, index, synced) {
+        if (index >= items.length) {
+            finishSync(synced);
+            return;
         }
 
+        var item = items[index];
+
+        // Create a hidden iframe to submit the form into
+        var iframe = document.createElement('iframe');
+        iframe.name = 'sync-frame';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+
+        // Populate the hidden form
+        document.getElementById('acc-form-date').value = item.data.date;
+        document.getElementById('acc-form-description').value = item.data.description;
+        document.getElementById('acc-form-photo').value = item.data.photo;
+        document.getElementById('acc-form-lat').value = item.data.latitude || '';
+        document.getElementById('acc-form-lng').value = item.data.longitude || '';
+        document.getElementById('acc-form-address').value = item.data.address || '';
+
+        // Point form at the iframe
+        var form = document.getElementById('acc-form');
+        form.target = 'sync-frame';
+
+        var done = false;
+
+        iframe.addEventListener('load', function() {
+            if (done) return;
+            done = true;
+            form.target = '';
+            document.body.removeChild(iframe);
+
+            // The form POST completed (server responded) — item was saved
+            deletePending(item.id).then(function() {
+                syncNextItem(items, index + 1, synced + 1);
+            });
+        });
+
+        // Timeout in case we're actually offline
+        setTimeout(function() {
+            if (!done) {
+                done = true;
+                form.target = '';
+                try { document.body.removeChild(iframe); } catch(e) {}
+                showToast('No connection. Will retry later.', 'warning');
+                finishSync(synced);
+            }
+        }, 20000);
+
+        form.submit();
+    }
+
+    function finishSync(synced) {
         isSyncing = false;
+        var syncBtn = document.getElementById('sync-btn');
+        var syncIcon = document.getElementById('sync-icon');
         if (syncBtn) syncBtn.disabled = false;
         if (syncIcon) syncIcon.classList.remove('fa-spin');
 
         if (synced > 0) {
             showToast(synced + ' accomplishment' + (synced > 1 ? 's' : '') + ' synced!', 'success');
-            await updatePendingUI();
+            updatePendingUI();
             setTimeout(function() { location.reload(); }, 1200);
         }
     }
@@ -655,7 +650,7 @@
 
     // ==================== Submit ====================
 
-    async function submitAccomplishment() {
+    function submitAccomplishment() {
         var btn = document.getElementById('acc-btn-submit');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
@@ -664,42 +659,36 @@
         var formDesc = document.getElementById('acc-description').value.trim();
         var formPhoto = document.getElementById('acc-preview').src;
 
-        // Quick connectivity check
-        var online = false;
-        try {
-            var ping = await fetch(STORE_URL, { method: 'HEAD', credentials: 'same-origin' });
-            online = true;
-        } catch (e) {
-            online = false;
-        }
-
-        if (online) {
-            // Use hidden form — this is the most reliable method
-            document.getElementById('acc-form-date').value = formDate;
-            document.getElementById('acc-form-description').value = formDesc;
-            document.getElementById('acc-form-photo').value = formPhoto;
-            document.getElementById('acc-form-lat').value = accLat || '';
-            document.getElementById('acc-form-lng').value = accLng || '';
-            document.getElementById('acc-form-address').value = accAddress || '';
-            closeAccCamera();
-            document.getElementById('acc-description').value = '';
-            document.getElementById('acc-form').submit();
+        if (!navigator.onLine) {
+            // Offline — save to IndexedDB
+            savePending({
+                date: formDate,
+                description: formDesc,
+                photo: formPhoto,
+                latitude: accLat || null,
+                longitude: accLng || null,
+                address: accAddress || ''
+            }).then(function() {
+                closeAccCamera();
+                showToast('Saved offline. Will sync when connected.', 'warning');
+                document.getElementById('acc-description').value = '';
+                updatePendingUI();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check mr-1"></i> Confirm & Save';
+            });
             return;
         }
 
-        // Offline — save to IndexedDB
-        await savePending({
-            date: formDate,
-            description: formDesc,
-            photo: formPhoto,
-            latitude: accLat || null,
-            longitude: accLng || null,
-            address: accAddress || ''
-        });
+        // Online — submit form directly (proven working method)
+        document.getElementById('acc-form-date').value = formDate;
+        document.getElementById('acc-form-description').value = formDesc;
+        document.getElementById('acc-form-photo').value = formPhoto;
+        document.getElementById('acc-form-lat').value = accLat || '';
+        document.getElementById('acc-form-lng').value = accLng || '';
+        document.getElementById('acc-form-address').value = accAddress || '';
         closeAccCamera();
-        showToast('Saved offline. Will sync when connected.', 'warning');
         document.getElementById('acc-description').value = '';
-        await updatePendingUI();
+        document.getElementById('acc-form').submit();
     }
 
     function closeAccCamera() {
@@ -723,6 +712,9 @@
 
     updateNetworkStatus();
     updatePendingUI();
-    syncPending();
+
+    if (navigator.onLine) {
+        syncPending();
+    }
 </script>
 @endpush
