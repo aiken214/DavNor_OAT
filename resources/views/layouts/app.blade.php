@@ -169,7 +169,8 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('{{ asset("sw.js") }}');
+            navigator.serviceWorker.register('{{ asset("sw.js") }}')
+                .then(function(reg) { reg.update(); });
         }
     </script>
     @stack('scripts')
