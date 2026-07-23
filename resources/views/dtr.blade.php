@@ -92,8 +92,12 @@
                                         {{ \Carbon\Carbon::parse($att->$field)->format('h:i A') }}
                                     </span>
                                     @if($dayPhotos->has($field))
-                                        <button onclick="viewPhoto('{{ route('photo.show', $dayPhotos[$field]->photo_path) }}')" class="ml-1 text-{{ $color }}-400 hover:text-{{ $color }}-600 transition-colors" title="View selfie">
+                                        @php $dPhoto = $dayPhotos[$field]; @endphp
+                                        <button onclick="viewPhoto('{{ route('photo.show', $dPhoto->photo_path) }}')" class="ml-1 text-{{ $color }}-400 hover:text-{{ $color }}-600 transition-colors" title="{{ $dPhoto->address ?: ($dPhoto->latitude && $dPhoto->longitude ? $dPhoto->latitude.', '.$dPhoto->longitude : 'View selfie') }}">
                                             <i class="fas fa-camera text-[10px]"></i>
+                                            @if($dPhoto->latitude && $dPhoto->longitude)
+                                                <i class="fas fa-map-marker-alt text-[8px] text-red-300"></i>
+                                            @endif
                                         </button>
                                     @endif
                                 @else

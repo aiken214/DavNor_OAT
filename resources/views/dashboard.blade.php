@@ -57,12 +57,18 @@
                         <i class="fas fa-check-circle mr-1"></i>{{ \Carbon\Carbon::parse($attendance->{$btn['type']})->format('h:i A') }}
                     </p>
                     @if($photos->has($btn['type']))
-                        <div class="mt-1.5 cursor-pointer" onclick="event.stopPropagation(); viewPhoto('{{ route('photo.show', $photos[$btn['type']]->photo_path) }}')">
-                            <img src="{{ route('photo.show', $photos[$btn['type']]->photo_path) }}"
+                        @php $photo = $photos[$btn['type']]; @endphp
+                        <div class="mt-1.5 cursor-pointer" onclick="event.stopPropagation(); viewPhoto('{{ route('photo.show', $photo->photo_path) }}', '{{ $photo->latitude }}', '{{ $photo->longitude }}', '{{ addslashes($photo->address ?? '') }}')">
+                            <img src="{{ route('photo.show', $photo->photo_path) }}"
                                 class="w-10 h-10 rounded-lg mx-auto object-cover border-2 border-emerald-200 hover:border-primary-400 transition-colors"
                                 onerror="this.outerHTML='<p class=\'text-[10px] text-emerald-500\'><i class=\'fas fa-camera mr-0.5\'></i> Photo saved</p>'"
                                 alt="Selfie">
                         </div>
+                        @if($photo->latitude && $photo->longitude)
+                            <p class="text-[8px] text-slate-400 mt-0.5 truncate px-1" title="{{ $photo->address ?: $photo->latitude.', '.$photo->longitude }}">
+                                <i class="fas fa-map-marker-alt text-red-300"></i> {{ $photo->address ? Str::limit($photo->address, 20) : number_format($photo->latitude, 4).', '.number_format($photo->longitude, 4) }}
+                            </p>
+                        @endif
                     @endif
                 @else
                     <p class="text-xs text-slate-400 mt-1">Tap to record</p>
@@ -141,7 +147,13 @@
 
 {{-- Photo Viewer Modal --}}
 <div id="photoViewer" class="fixed inset-0 z-[70] hidden bg-black/90 flex items-center justify-center p-4 cursor-pointer" onclick="this.classList.add('hidden')">
-    <img id="photoViewerImg" class="max-w-full max-h-full rounded-xl shadow-2xl">
+    <div class="flex flex-col items-center gap-3 max-w-full max-h-full">
+        <img id="photoViewerImg" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl">
+        <div id="photoViewerInfo" class="hidden text-white text-xs text-center space-y-1">
+            <p id="photoViewerGeo"></p>
+            <p id="photoViewerAddr" class="text-white/70"></p>
+        </div>
+    </div>
 </div>
 
 {{-- Hidden Form --}}
@@ -334,9 +346,22 @@
         }
     }
 
-    function viewPhoto(src) {
+    function viewPhoto(src, lat, lng, addr) {
         if (!src || src === '#') return;
         document.getElementById('photoViewerImg').src = src;
+
+        var info = document.getElementById('photoViewerInfo');
+        var geo = document.getElementById('photoViewerGeo');
+        var addrEl = document.getElementById('photoViewerAddr');
+
+        if (lat && lng) {
+            info.classList.remove('hidden');
+            geo.innerHTML = '<i class="fas fa-map-marker-alt text-red-400 mr-1"></i>GPS: ' + lat + ', ' + lng;
+            addrEl.textContent = addr || '';
+        } else {
+            info.classList.add('hidden');
+        }
+
         document.getElementById('photoViewer').classList.remove('hidden');
     }
 </script>
