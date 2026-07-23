@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oat-v1';
+const CACHE_NAME = 'oat-v2';
 const OFFLINE_URL = '/DavNor_OAT/public/login';
 
 const PRECACHE_ASSETS = [
@@ -26,6 +26,21 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
+
+    const url = new URL(event.request.url);
+
+    if (url.pathname.includes('/accomplishments') || url.pathname.includes('/dashboard')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    return response;
+                })
+                .catch(() => caches.match(event.request).then((cached) => cached || caches.match(OFFLINE_URL)))
+        );
+        return;
+    }
 
     event.respondWith(
         fetch(event.request)

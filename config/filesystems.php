@@ -47,6 +47,13 @@ return [
             'report' => false,
         ],
 
+        'synology' => [
+            'driver' => 'local',
+            'root' => env('SYNOLOGY_PATH', storage_path('app/public/photos')),
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

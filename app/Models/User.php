@@ -43,4 +43,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Attendance::class);
     }
+
+    public function accomplishments()
+    {
+        return $this->hasMany(Accomplishment::class);
+    }
+
+    public function attendancePhotos()
+    {
+        return $this->hasMany(AttendancePhoto::class);
+    }
 }
