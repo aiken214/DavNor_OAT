@@ -48,8 +48,12 @@ return [
         ],
 
         'synology' => [
-            'driver' => 'local',
-            'root' => env('SYNOLOGY_PATH', storage_path('app/public/photos')),
+            'driver' => 'sftp',
+            'host' => env('SFTP_HOST', '192.168.4.4'),
+            'port' => (int) env('SFTP_PORT', 22),
+            'username' => env('SFTP_USERNAME'),
+            'password' => env('SFTP_PASSWORD'),
+            'root' => env('SFTP_ROOT', '/OAT'),
             'visibility' => 'public',
             'throw' => false,
         ],
