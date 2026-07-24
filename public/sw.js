@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oat-v7';
+const CACHE_NAME = 'oat-v8';
 
 const OFFLINE_URL = '/_offline';
 
@@ -120,6 +120,9 @@ self.addEventListener('fetch', event => {
     const url = new URL(request.url);
 
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+    // Never cache icon requests — let them always hit the server
+    if (url.pathname.startsWith('/icons/')) return;
 
     // HTML pages — network first, cache fallback, then offline page
     if (request.mode === 'navigate') {

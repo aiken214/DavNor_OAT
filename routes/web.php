@@ -38,6 +38,20 @@ Route::get('/icons/{file}', function ($file) {
     abort(404);
 })->where('file', '.*');
 
+Route::get('/debug-icons', function () {
+    $pub = public_path();
+    $iconsDir = public_path('icons');
+    $icon192 = public_path('icons/icon-192.png');
+    return response()->json([
+        'public_path' => $pub,
+        'icons_dir_exists' => is_dir($iconsDir),
+        'icon_192_exists' => file_exists($icon192),
+        'icon_192_size' => file_exists($icon192) ? filesize($icon192) : null,
+        'files_in_icons' => is_dir($iconsDir) ? scandir($iconsDir) : 'directory not found',
+        'gd_available' => extension_loaded('gd'),
+    ]);
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
