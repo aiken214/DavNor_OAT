@@ -116,7 +116,7 @@
         </div>
 
         {{-- Install PWA prompt --}}
-        <div id="install-prompt" class="mt-4 pwa-hide">
+        <div id="install-prompt" class="hidden mt-4 pwa-hide">
             <button onclick="showInstallGuide()" class="w-full py-3 rounded-2xl glass text-white font-medium text-sm hover:bg-white/30 transition-all flex items-center justify-center gap-2">
                 <i class="fas fa-mobile-alt"></i> Install as Mobile App
             </button>
@@ -195,6 +195,8 @@
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
+            var ip = document.getElementById('install-prompt');
+            if (ip) ip.classList.remove('hidden');
         });
 
         function showInstallGuide() {
