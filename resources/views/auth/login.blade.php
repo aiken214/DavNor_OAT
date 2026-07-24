@@ -116,10 +116,55 @@
         </div>
 
         {{-- Install PWA prompt --}}
-        <div id="install-prompt" class="hidden mt-4">
-            <button onclick="installPWA()" class="w-full py-3 rounded-2xl glass text-white font-medium text-sm hover:bg-white/30 transition-all flex items-center justify-center gap-2">
+        <div id="install-prompt" class="mt-4 pwa-hide">
+            <button onclick="showInstallGuide()" class="w-full py-3 rounded-2xl glass text-white font-medium text-sm hover:bg-white/30 transition-all flex items-center justify-center gap-2">
                 <i class="fas fa-mobile-alt"></i> Install as Mobile App
             </button>
+        </div>
+
+        {{-- Install Guide Modal --}}
+        <div id="install-guide-modal" class="fixed inset-0 z-[70] hidden">
+            <div class="absolute inset-0 bg-black/60" onclick="document.getElementById('install-guide-modal').classList.add('hidden')"></div>
+            <div class="absolute inset-0 flex items-end sm:items-center justify-center p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800">Install OAT App</h3>
+                        <button onclick="document.getElementById('install-guide-modal').classList.add('hidden')" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        <p class="text-sm text-slate-600">Follow these steps to install OAT on your phone:</p>
+                        <div class="space-y-3">
+                            <div class="flex gap-3">
+                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                                <div>
+                                    <p class="text-sm font-medium text-slate-700">Tap the browser menu</p>
+                                    <p class="text-xs text-slate-500">Tap <i class="fas fa-ellipsis-vertical"></i> (three dots) at the top-right corner of Chrome</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                                <div>
+                                    <p class="text-sm font-medium text-slate-700">Select "Add to Home screen"</p>
+                                    <p class="text-xs text-slate-500">Or "Install app" if available</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                                <div>
+                                    <p class="text-sm font-medium text-slate-700">Tap "Add"</p>
+                                    <p class="text-xs text-slate-500">The OAT icon will appear on your home screen</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                            <p class="text-xs text-amber-700"><i class="fas fa-info-circle mr-1"></i> Once installed, the app works even without internet.</p>
+                        </div>
+                    </div>
+                    <div class="px-5 py-4 border-t border-slate-100">
+                        <button onclick="document.getElementById('install-guide-modal').classList.add('hidden')" class="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">Got it</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- Bottom branding --}}
@@ -139,20 +184,29 @@
             }
         }
 
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
+        var deferredPrompt = null;
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+        if (isStandalone) {
+            var ip = document.getElementById('install-prompt');
+            if (ip) ip.style.display = 'none';
+        }
+
+        window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
-            document.getElementById('install-prompt').classList.remove('hidden');
         });
 
-        function installPWA() {
+        function showInstallGuide() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => {
+                deferredPrompt.userChoice.then(function() {
                     deferredPrompt = null;
-                    document.getElementById('install-prompt').classList.add('hidden');
+                    var ip = document.getElementById('install-prompt');
+                    if (ip) ip.style.display = 'none';
                 });
+            } else {
+                document.getElementById('install-guide-modal').classList.remove('hidden');
             }
         }
 
