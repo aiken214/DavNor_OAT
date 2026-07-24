@@ -15,8 +15,27 @@ Route::get('/', fn () => redirect()->route('login'));
 
 Route::get('/icons/{file}', function ($file) {
     $path = public_path("icons/{$file}");
-    if (!file_exists($path)) abort(404);
-    return response()->file($path);
+    if (file_exists($path)) {
+        return response()->file($path, ['Cache-Control' => 'public, max-age=31536000']);
+    }
+
+    // Fallback: generate icon if file missing
+    if (preg_match('/icon-(\d+)\.png/', $file, $m)) {
+        $size = (int) $m[1];
+        $img = imagecreatetruecolor($size, $size);
+        $bg = imagecolorallocate($img, 37, 99, 235);
+        $white = imagecolorallocate($img, 255, 255, 255);
+        imagefill($img, 0, 0, $bg);
+        $tw = strlen('OAT') * imagefontwidth(5);
+        imagestring($img, 5, (int)(($size - $tw) / 2), (int)(($size - imagefontheight(5)) / 2), 'OAT', $white);
+        ob_start();
+        imagepng($img);
+        $data = ob_get_clean();
+        imagedestroy($img);
+        return response($data, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'public, max-age=31536000']);
+    }
+
+    abort(404);
 })->where('file', '.*');
 
 Route::middleware('guest')->group(function () {
