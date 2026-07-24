@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 Route::get('/', fn () => redirect()->route('login'));
 
-Route::get('/icons/icon-{size}.png', function ($size) {
+Route::get('/app-icon/{size}', function ($size) {
     $size = (int) $size;
     $path = public_path("icons/icon-{$size}.png");
 
