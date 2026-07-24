@@ -79,10 +79,26 @@
                         <span>Change Password</span>
                     </a>
 
-                    @if(auth()->user()->is_admin)
+                    @if(auth()->user()->hasAdminAccess())
                     <div class="pt-4 pb-2 px-4">
-                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Administration</p>
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                            @if(auth()->user()->isSuperAdmin()) Administration
+                            @elseif(auth()->user()->isSectionHead()) My Section
+                            @elseif(auth()->user()->isDistrictHead()) My District
+                            @else My School
+                            @endif
+                        </p>
                     </div>
+                    @if(auth()->user()->isSuperAdmin())
+                    <a href="{{ route('admin.sections.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('admin.sections.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-sitemap w-5 text-center"></i>
+                        <span>Manage Sections</span>
+                    </a>
+                    <a href="{{ route('admin.districts.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('admin.districts.*') || request()->routeIs('admin.schools.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
+                        <i class="fas fa-school w-5 text-center"></i>
+                        <span>Districts & Schools</span>
+                    </a>
+                    @endif
                     <a href="{{ route('admin.users.index') }}" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium {{ request()->routeIs('admin.users.*') ? 'active bg-primary-50 text-primary-700' : 'text-slate-600' }}">
                         <i class="fas fa-users-cog w-5 text-center"></i>
                         <span>Manage Employees</span>
@@ -93,6 +109,14 @@
                     </a>
                     @endif
                 </nav>
+
+                {{-- Install App --}}
+                <div id="pwa-install-sidebar" class="hidden px-3 pb-2 pwa-hide">
+                    <button onclick="installPWA()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium bg-gradient-to-r from-primary-500 to-indigo-500 text-white hover:from-primary-600 hover:to-indigo-600 transition-all shadow-sm">
+                        <i class="fas fa-download w-5 text-center"></i>
+                        <span>Install App</span>
+                    </button>
+                </div>
 
                 {{-- User Profile --}}
                 <div class="px-4 py-4 border-t border-slate-100">
@@ -164,12 +188,73 @@
         </main>
     </div>
 
+    {{-- Install Banner (shown on mobile when not installed) --}}
+    <div id="pwa-install-banner" class="hidden fixed bottom-0 left-0 right-0 z-[60] p-3 lg:hidden pwa-hide">
+        <div class="max-w-md mx-auto bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-200 flex-shrink-0">
+                <i class="fas fa-clock text-white"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-slate-800">Install OAT App</p>
+                <p class="text-xs text-slate-500">Works offline, faster access</p>
+            </div>
+            <button onclick="installPWA()" class="px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 transition-colors flex-shrink-0">
+                Install
+            </button>
+            <button onclick="dismissInstall()" class="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 flex-shrink-0">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+        </div>
+    </div>
+
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             sidebar.classList.toggle('-translate-x-full');
             overlay.classList.toggle('hidden');
+        }
+
+        var deferredPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            var sidebar = document.getElementById('pwa-install-sidebar');
+            if (sidebar) sidebar.classList.remove('hidden');
+
+            if (!localStorage.getItem('pwa-install-dismissed')) {
+                var banner = document.getElementById('pwa-install-banner');
+                if (banner) banner.classList.remove('hidden');
+            }
+        });
+
+        window.addEventListener('appinstalled', function() {
+            deferredPrompt = null;
+            var sidebar = document.getElementById('pwa-install-sidebar');
+            var banner = document.getElementById('pwa-install-banner');
+            if (sidebar) sidebar.classList.add('hidden');
+            if (banner) banner.classList.add('hidden');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function() {
+                    deferredPrompt = null;
+                    var sidebar = document.getElementById('pwa-install-sidebar');
+                    var banner = document.getElementById('pwa-install-banner');
+                    if (sidebar) sidebar.classList.add('hidden');
+                    if (banner) banner.classList.add('hidden');
+                });
+            }
+        }
+
+        function dismissInstall() {
+            var banner = document.getElementById('pwa-install-banner');
+            if (banner) banner.classList.add('hidden');
+            localStorage.setItem('pwa-install-dismissed', '1');
         }
 
         if ('serviceWorker' in navigator) {
