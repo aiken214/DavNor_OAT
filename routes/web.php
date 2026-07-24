@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\Storage;
 
 Route::get('/', fn () => redirect()->route('login'));
 
+Route::get('/icons/{file}', function ($file) {
+    $path = public_path("icons/{$file}");
+    if (!file_exists($path)) abort(404);
+    return response()->file($path);
+})->where('file', '.*');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
