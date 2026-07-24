@@ -17,7 +17,7 @@ class AdminSeeder extends Seeder
                 'password' => 'oat2026',
                 'bio_id' => 'ADMIN001',
                 'tag' => 1,
-                'is_admin' => true,
+                'role' => 'super_admin',
             ]
         );
     }
