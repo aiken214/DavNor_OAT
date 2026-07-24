@@ -1,6 +1,13 @@
-const CACHE_NAME = 'oat-v5';
+const CACHE_NAME = 'oat-v6';
 
 const OFFLINE_URL = '/_offline';
+
+const PRECACHE_URLS = [
+    '/login',
+    '/dashboard',
+    '/my-dtr',
+    '/accomplishments'
+];
 
 const OFFLINE_PAGE = `
 <!DOCTYPE html>
@@ -69,189 +76,103 @@ Your pending accomplishments are safely stored and will sync when you're back on
 `;
 
 self.addEventListener('install', event => {
-
     event.waitUntil(
-
         caches.open(CACHE_NAME).then(cache => {
-
-            return cache.put(
+            cache.put(
                 new Request(OFFLINE_URL),
-                new Response(OFFLINE_PAGE,{
-                    headers:{
-                        'Content-Type':'text/html'
-                    }
-                })
+                new Response(OFFLINE_PAGE, { headers: { 'Content-Type': 'text/html' } })
             );
 
+            return Promise.allSettled(
+                PRECACHE_URLS.map(url =>
+                    fetch(url, { credentials: 'include' })
+                        .then(response => {
+                            if (response.ok) {
+                                return cache.put(new Request(url), response);
+                            }
+                        })
+                        .catch(() => {})
+                )
+            );
         })
-
     );
-
     self.skipWaiting();
-
 });
 
 self.addEventListener('activate', event => {
-
     event.waitUntil(
-
-        caches.keys().then(keys=>{
-
+        caches.keys().then(keys => {
             return Promise.all(
-
                 keys
-                    .filter(key=>key!==CACHE_NAME)
-                    .map(key=>caches.delete(key))
-
+                    .filter(key => key !== CACHE_NAME)
+                    .map(key => caches.delete(key))
             );
-
         })
-
     );
-
     self.clients.claim();
-
 });
 
 self.addEventListener('fetch', event => {
-
     const request = event.request;
 
-    if(request.method !== 'GET'){
-        return;
-    }
+    if (request.method !== 'GET') return;
 
     const url = new URL(request.url);
 
-    // Ignore unsupported protocols
-    if(
-        url.protocol !== 'http:' &&
-        url.protocol !== 'https:'
-    ){
-        return;
-    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-    // -------------------------
-    // HTML pages
-    // -------------------------
-
-    if(request.mode === 'navigate'){
-
+    // HTML pages — network first, cache fallback, then offline page
+    if (request.mode === 'navigate') {
         event.respondWith(
-
             fetch(request)
-
-                .then(response=>{
-
-                    if(response.ok){
-
+                .then(response => {
+                    if (response.ok) {
                         const clone = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(cache=>cache.put(request,clone));
-
+                        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
                     }
-
                     return response;
-
                 })
-
-                .catch(()=>{
-
+                .catch(() => {
                     return caches.match(request)
-
-                        .then(cached=>{
-
-                            return cached ||
-                                caches.match(OFFLINE_URL);
-
+                        .then(cached => {
+                            if (cached) return cached;
+                            // Try matching without query string
+                            return caches.match(url.pathname)
+                                .then(pathCached => pathCached || caches.match(OFFLINE_URL));
                         });
-
                 })
-
         );
-
         return;
-
     }
 
-    // -------------------------
-    // Local assets
-    // -------------------------
-
-    if(url.origin === location.origin){
-
+    // Local assets — cache first
+    if (url.origin === location.origin) {
         event.respondWith(
-
-            caches.match(request)
-
-                .then(cached=>{
-
-                    if(cached){
-                        return cached;
+            caches.match(request).then(cached => {
+                if (cached) return cached;
+                return fetch(request).then(response => {
+                    if (response.ok) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
                     }
-
-                    return fetch(request)
-
-                        .then(response=>{
-
-                            if(response.ok){
-
-                                const clone = response.clone();
-
-                                caches.open(CACHE_NAME)
-                                    .then(cache=>cache.put(request,clone));
-
-                            }
-
-                            return response;
-
-                        });
-
-                })
-
+                    return response;
+                });
+            })
         );
-
         return;
-
     }
 
-    // -------------------------
-    // External assets (CDNs)
-    // -------------------------
-
+    // External assets (CDNs) — cache first
     event.respondWith(
-
-        caches.match(request)
-
-            .then(cached=>{
-
-                if(cached){
-                    return cached;
+        caches.match(request).then(cached => {
+            if (cached) return cached;
+            return fetch(request).then(response => {
+                if (response.ok || response.type === 'opaque') {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
                 }
-
-                return fetch(request)
-
-                    .then(response=>{
-
-                        if(
-                            response.ok ||
-                            response.type === 'opaque'
-                        ){
-
-                            const clone = response.clone();
-
-                            caches.open(CACHE_NAME)
-                                .then(cache=>cache.put(request,clone));
-
-                        }
-
-                        return response;
-
-                    });
-
-            })
-
+                return response;
+            });
+        })
     );
-
 });
