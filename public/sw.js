@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oat-v6';
+const CACHE_NAME = 'oat-v7';
 
 const OFFLINE_URL = '/_offline';
 
